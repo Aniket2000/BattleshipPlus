@@ -60,12 +60,66 @@ class BattleshipGame:
     def all_ships_sunk(self, board):
         return all(all(cell in ["-", "O", "X"] for cell in row) for row in board)
 
+
+
+
+####
+class Player: #TODO, used for creating types of players (Human and Computer)
+    def __init__(self, name):
+        self.name = name
+
+class HumanPlayer(Player):  #TODO
+    def __init__(self, name):
+        super().__init__(name)
+
+class ComputerPlayer(Player):
+    def __init__(self, name):
+        super().__init__(name)
+        self.last_hit = None
+
+    def make_move(self, game, board, moves_made):
+
+        # if there was a previous hit, play more intelligently (rather than random)
+        if self.last_hit:
+            row, col = self.last_hit
+            directions = [(0, 1), (1, 0), (0, -1), (-1, 0)]  # Right, Down, Left, Up
+
+            for dr, dc in directions:
+                new_row, new_col = row + dr, col + dc
+                if 0 <= new_row < game.grid_size and 0 <= new_col < game.grid_size:
+                    if (new_row, new_col) not in moves_made and board[new_row][new_col] == "-":
+                        move = (new_row, new_col)
+                        moves_made.add(move)
+                        result = game.make_move(board, move)
+
+                        # TODO: modify this to have memory of previous hit in case adjacent not hit, but other adjacents available
+                        if "Hit" in result:
+                            self.last_hit = move
+                        else:
+                            self.last_hit = None
+                        return move, result
+
+        # choose a random coordinate for move
+        else:
+            move = (random.randint(0, game.grid_size - 1), random.randint(0, game.grid_size - 1))
+            if game.validate_move(move, moves_made):
+                moves_made.add(move)
+                result = game.make_move(board, move)
+                if "Hit" in result:
+                    self.last_hit = move
+                else:
+                    self.last_hit = None
+                return move, result
+
+
 class BattleshipUI:
     def __init__(self, master):
         self.master = master
         self.master.title("Battleship")
         self.game = BattleshipGame()
-        self.current_player = 1
+        self.player1 = HumanPlayer("Player 1")
+        self.player2 = None
+        self.current_player = self.player1
         self.game_mode = None
 
         self.create_main_menu()
@@ -81,10 +135,12 @@ class BattleshipUI:
 
     def start_multiplayer(self):
         self.game_mode = "multiplayer"
+        self.player2 = HumanPlayer("Player 2")
         self.setup_game()
 
     def start_computer_game(self):
         self.game_mode = "computer"
+        self.player2 = ComputerPlayer("Computer")
         self.setup_game()
 
     def setup_game(self):
@@ -95,12 +151,12 @@ class BattleshipUI:
         self.game_frame = tk.Frame(self.master)
         self.game_frame.grid(row=0, column=0, padx=20, pady=20)
 
-        self.player_label = tk.Label(self.game_frame, text="Player 1's turn", font=("Arial", 14))
+        self.player_label = tk.Label(self.game_frame, text=f"{self.player1.name}'s turn", font=("Arial", 14))
         self.player_label.grid(row=0, column=0, columnspan=self.game.grid_size*2+3, pady=10)
 
         # Player 1 board
         self.player1_buttons = self.create_board(1, 1, 0)
-        tk.Label(self.game_frame, text="Player 1's Board", font=("Arial", 12)).grid(row=1, column=0, columnspan=self.game.grid_size+1, pady=5)
+        tk.Label(self.game_frame, text=f"{self.player1.name}'s Board", font=("Arial", 12)).grid(row=1, column=0, columnspan=self.game.grid_size+1, pady=5)
 
         # Gap column
         self.game_frame.grid_columnconfigure(self.game.grid_size + 1, minsize=50)
@@ -109,8 +165,8 @@ class BattleshipUI:
         tk.Frame(self.game_frame, width=2, bg="black").grid(row=1, column=self.game.grid_size+1, rowspan=self.game.grid_size+1, sticky="ns", padx=10)
 
         # Player 2 board
-        self.player2_buttons = self.create_board(1, 1, self.game.grid_size+1)
-        tk.Label(self.game_frame, text="Player 2's Board", font=("Arial", 12)).grid(row=1, column=self.game.grid_size+2, columnspan=self.game.grid_size, pady=5)
+        self.player2_buttons = self.create_board(1, 1, self.game.grid_size+2)
+        tk.Label(self.game_frame, text=f"{self.player2.name}'s Board", font=("Arial", 12)).grid(row=1, column=self.game.grid_size+2, columnspan=self.game.grid_size, pady=5)
 
     def create_board(self, start_row, start_col, offset):
         buttons = []
@@ -124,12 +180,13 @@ class BattleshipUI:
             buttons.append(row)
         return buttons
 
+    # TODO: logic for multiplayer
     def make_move(self, row, col):
-        if self.game_mode == "multiplayer" or (self.game_mode == "computer" and self.current_player == 1):
+        if self.game_mode == "multiplayer" or (self.game_mode == "computer" and self.current_player == self.player1):
             move = (row, col)
-            board = self.game.player2_board if self.current_player == 1 else self.game.player1_board
-            moves = self.game.player1_moves if self.current_player == 1 else self.game.player2_moves
-            buttons = self.player2_buttons if self.current_player == 1 else self.player1_buttons
+            board = self.game.player2_board if self.current_player == self.player1 else self.game.player1_board
+            moves = self.game.player1_moves if self.current_player == self.player1 else self.game.player2_moves
+            buttons = self.player2_buttons if self.current_player == self.player1 else self.player1_buttons
 
             if self.game.validate_move(move, moves):
                 result = self.game.make_move(board, move)
@@ -137,27 +194,37 @@ class BattleshipUI:
                 self.update_button(buttons, row, col, result)
 
                 if self.game.all_ships_sunk(board):
-                    self.end_game(f"Player {self.current_player} wins!")
+                    self.end_game(f"{self.current_player.name} wins!")
                 else:
                     self.switch_player()
 
-                if self.game_mode == "computer" and self.current_player == 2:
-                    self.computer_move()
+                # if self.game_mode == "computer" and self.current_player == self.player2:
+                #     self.computer_move()
 
-    def computer_move(self):
-        while True:
-            move = (random.randint(0, self.game.grid_size - 1), random.randint(0, self.game.grid_size - 1))
-            if self.game.validate_move(move, self.game.player2_moves):
-                result = self.game.make_move(self.game.player1_board, move)
-                self.game.player2_moves.add(move)
-                row, col = move
-                self.update_button(self.player1_buttons, row, col, result)
+        elif self.game_mode == "computer" and self.current_player == self.player2:
+            move, result = self.player2.make_move(self.game, self.game.player1_board, self.game.player2_moves)
+            row, col = move
+            self.update_button(self.player1_buttons, row, col, result)
 
-                if self.game.all_ships_sunk(self.game.player1_board):
-                    self.end_game("Computer wins!")
-                else:
-                    self.switch_player()
-                break
+            if self.game.all_ships_sunk(self.game.player1_board):
+                self.end_game(f"{self.player2.name} wins!")
+            else:
+                self.switch_player()
+
+    # def computer_move(self):
+    #     while True:
+    #         move = (random.randint(0, self.game.grid_size - 1), random.randint(0, self.game.grid_size - 1))
+    #         if self.game.validate_move(move, self.game.player2_moves):
+    #             result = self.game.make_move(self.game.player1_board, move)
+    #             self.game.player2_moves.add(move)
+    #             row, col = move
+    #             self.update_button(self.player1_buttons, row, col, result)
+    #
+    #             if self.game.all_ships_sunk(self.game.player1_board):
+    #                 self.end_game("Computer wins!")
+    #             else:
+    #                 self.switch_player()
+    #             break
 
     def update_button(self, buttons, row, col, result):
         if "Hit" in result:
@@ -166,12 +233,16 @@ class BattleshipUI:
             buttons[row][col].config(text="O", bg="gray")
 
     def switch_player(self):
-        self.current_player = 3 - self.current_player
-        self.player_label.config(text=f"Player {self.current_player}'s turn")
+        self.current_player = self.player2 if self.current_player == self.player1 else self.player1
+        self.player_label.config(text=f"{self.current_player.name}'s turn")
 
     def end_game(self, message):
         messagebox.showinfo("Game Over", message)
         self.master.quit()
+
+    def start(self):
+        self.current_player = self.player1
+        self.player_label.config(text=f"{self.current_player.name}'s turn")
 
 if __name__ == "__main__":
     root = tk.Tk()
