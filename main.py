@@ -41,6 +41,7 @@ class BattleshipGame:
                             board[row + i][col] = ship[0]
                         placed = True
 
+    # TODO: static?
     def validate_move(self, move, moves_made):
         if move in moves_made:
             return False
@@ -86,18 +87,27 @@ class ComputerPlayer(Player):
 
             for dr, dc in directions:
                 new_row, new_col = row + dr, col + dc
-                if 0 <= new_row < game.grid_size and 0 <= new_col < game.grid_size:
-                    if (new_row, new_col) not in moves_made and board[new_row][new_col] == "-":
-                        move = (new_row, new_col)
-                        moves_made.add(move)
-                        result = game.make_move(board, move)
+                move = (new_row, new_col)
 
-                        # TODO: modify this to have memory of previous hit in case adjacent not hit, but other adjacents available
-                        if "Hit" in result:
-                            self.last_hit = move
-                        else:
-                            self.last_hit = None
-                        return move, result
+                # TODO: use validate_moves
+                if game.validate_move(move, moves_made):
+
+                    moves_made.add(move)
+                    result = game.make_move(board, move)
+
+                    # TODO: modify this to have memory of previous hit in case adjacent not hit, but other adjacents available
+                    if "Hit" in result:
+                        self.last_hit = move
+
+                    return move, result
+
+            # if all adjacent moves exhausted
+            self.last_hit = None
+            # TODO: recursive, maybe make it non-recursive?
+            self.make_move(game, board, moves_made)
+
+
+
 
         # choose a random coordinate for move
         else:
@@ -111,16 +121,20 @@ class ComputerPlayer(Player):
                     self.last_hit = None
                 return move, result
 
+            # TODO: recursive, maybe make it non-recursive?
+            else:
+                self.make_move(game, board, moves_made)
+
 
 class BattleshipUI:
     def __init__(self, master):
-        self.master = master
+        self.master = master                        # tkinter root
         self.master.title("Battleship")
         self.game = BattleshipGame()
         self.player1 = HumanPlayer("Player 1")
         self.player2 = None
         self.current_player = self.player1
-        self.game_mode = None
+        self.game_mode = None                       # currently: (multiplayer, computer)
 
         self.create_main_menu()
 
@@ -133,6 +147,7 @@ class BattleshipUI:
         tk.Button(self.main_frame, text="Multiplayer", command=self.start_multiplayer).grid(row=1, column=0, pady=5)
         tk.Button(self.main_frame, text="Play against Computer", command=self.start_computer_game).grid(row=2, column=0, pady=5)
 
+    # TODO
     def start_multiplayer(self):
         self.game_mode = "multiplayer"
         self.player2 = HumanPlayer("Player 2")
@@ -202,7 +217,10 @@ class BattleshipUI:
                 #     self.computer_move()
 
         elif self.game_mode == "computer" and self.current_player == self.player2:
+
+            # TODO: TypeError: cannot unpack non-iterable NoneType object. problem with move not being assigned (assigned to None)
             move, result = self.player2.make_move(self.game, self.game.player1_board, self.game.player2_moves)
+
             row, col = move
             self.update_button(self.player1_buttons, row, col, result)
 

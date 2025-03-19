@@ -24,3 +24,4 @@ TODO in version 0.0 - Computer Logic:
 2. Still doesn't seem to follow intelligent gameplay
 3. Sometimes get a null error
 
+![](errorImages/img.png)
