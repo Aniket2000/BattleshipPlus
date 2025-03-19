@@ -23,5 +23,5 @@ TODO in version 0.0 - Computer Logic:
 1. Computer moves have a lag by 1 effect before displaying the move
 2. Still doesn't seem to follow intelligent gameplay
 3. Sometimes get a null error
-
+4. Need to implement "keep guessing in the same direction" for computer logic
 ![](errorImages/img.png)
